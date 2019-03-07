@@ -104,141 +104,117 @@ jieba.initialize()
 
 if __name__ == '__main__':
 
-
-
-
     multiprocessing.freeze_support()
     cores = 16
     pool = multiprocessing.Pool(processes=cores)
 
 
+          
+            
+    start = time.time()
+    test = excel_to_list('1w_3')   #the name of the test defined by you
+
+    data_len = len(test)
+    print(data_len)
+    each_data_len = int(data_len / cores)
+    result = []
+    for i in range(cores):
+        result.append(pool.apply_async(preProcess_new, args=(test[0 + i*each_data_len: each_data_len + i*each_data_len],)))
+
+
+    new = []
+    for x in result:
+        new += x.get()
+
+
+    end = time.time()
+    test = new
+    test = pd.DataFrame(test)
+    test.columns = ['text']
+    #print('Word Cut Cost:', end - start)
+
+
+
+
+
+   
+    print('**********RUN!**********')
+   
+    result = []
+    for i in range(cores):   
+        result.append(pool.apply_async(get_countvec, 
+        args=(test[0 + i*each_data_len : each_data_len + i*each_data_len],)))
+
+
+    for index, value in enumerate(result):
+
+        if index == 0:
+            countvec_df_test = value.get()
+        else:
+            countvec_df_test = vstack([countvec_df_test, value.get()])
     
-
-    while True:
-
-        path = pathlib.Path('key_3.xlsx')
-        key = path.exists()
-        print(key)
-
-        if key:
-            
-            
-            start = time.time()
-            test = excel_to_list('1w_3')
-            
-            data_len = len(test)
-            print(data_len)
-            each_data_len = int(data_len / cores)
-            result = []
-            for i in range(cores):
-                result.append(pool.apply_async(preProcess_new, args=(test[0 + i*each_data_len: each_data_len + i*each_data_len],)))
-                
-
-            new = []
-            for x in result:
-                new += x.get()
-            
-            
-            end = time.time()
-            test = new
-            test = pd.DataFrame(test)
-            test.columns = ['text']
-            #print('Word Cut Cost:', end - start)
+    #print('Countvec Cost:', end - start)
 
 
 
-
-
-            all_start = time.time() 
-            print('**********RUN!**********')
-            #print('Start Time:', all_start)
-            start = time.time()
-            result = []
-            for i in range(cores):   
-                result.append(pool.apply_async(get_countvec, 
-                args=(test[0 + i*each_data_len : each_data_len + i*each_data_len],)))
-            
-            
-            for index, value in enumerate(result):
-                
-                if index == 0:
-                    countvec_df_test = value.get()
-                else:
-                    countvec_df_test = vstack([countvec_df_test, value.get()])
-            end = time.time()
-            #print('Countvec Cost:', end - start)
+    test['num_dai'] = test['text'].apply(lambda x: len(re.findall('款|贷|息|0+元|资格|点击|分期|信用', x)))
+    test['num_ka'] = test['text'].apply(lambda x: len(re.findall('信用卡|银行', x)))
+    test['num_kuohao'] = test['text'].apply(lambda x: len(re.findall('【|】', x)))
+    test['num_fuhao'] = test['text'].apply(lambda x: len(re.findall('\?|!|\.|↓|→|↑', x)))
+    test['num_eng'] = test['text'].apply(lambda x: len(re.findall('[a-zA_Z]', x)))
+    test['num_phone'] = test['text'].apply(lambda x: len(re.findall('[0-9]{11}', x)))
 
 
 
-            test['num_dai'] = test['text'].apply(lambda x: len(re.findall('款|贷|息|0+元|资格|点击|分期|信用', x)))
-            test['num_ka'] = test['text'].apply(lambda x: len(re.findall('信用卡|银行', x)))
-            test['num_kuohao'] = test['text'].apply(lambda x: len(re.findall('【|】', x)))
-            test['num_fuhao'] = test['text'].apply(lambda x: len(re.findall('\?|!|\.|↓|→|↑', x)))
-            test['num_eng'] = test['text'].apply(lambda x: len(re.findall('[a-zA_Z]', x)))
-            test['num_phone'] = test['text'].apply(lambda x: len(re.findall('[0-9]{11}', x)))
-            
+    num_features_test = pd.concat([test['num_phone'], test['num_dai'],test['num_ka'], test['num_kuohao'],test['num_fuhao'],test['num_eng']], axis=1)
 
+    from sklearn import preprocessing
+    scaler = preprocessing.MinMaxScaler()
+    features_test = csr_matrix(scaler.fit_transform(num_features_test))
+    features_test = hstack([features_test, countvec_df_test])
+    features_test_array = csr_matrix(features_test)
 
-            num_features_test = pd.concat([test['num_phone'], test['num_dai'],test['num_ka'], test['num_kuohao'],test['num_fuhao'],test['num_eng']], axis=1)
-
-            from sklearn import preprocessing
-            scaler = preprocessing.MinMaxScaler()
-            features_test = csr_matrix(scaler.fit_transform(num_features_test))
-            features_test = hstack([features_test, countvec_df_test])
-            features_test_array = csr_matrix(features_test)
-
-            a = random.uniform(0.2, 0.35)
-            col = ['正常','贷款','信用卡','营销广告','其他']
-            
-
-            start = time.time()
-
-
-            # result = []
-            # for i in range(cores):
-            #     result.append(pool.apply_async(predict, 
-            #     args=(features_test_array[0 + i*each_data_len : each_data_len + i*each_data_len],bst,)))
-            # for index, value in enumerate(result):
-            #     if index == 0:
-            #         preds = value.get()
-            #     else:
-            #         preds = np.vstack([preds, value.get()])
-
-            
-            
-            preds = np.zeros((test.shape[0], len(col)))
-            preds = bst.predict(features_test)
-
-            all_start += a
-            all_end = time.time()
-            #print('End Time:', all_end)
-            print('All Time Cost', all_end-all_start)
-            
-            
-            
-            end = time.time()
-            #print('out Cost', end - start)
-            
-
-            ans = []
-            for x in preds:
-                if np.argmax(x) == 0:
-                    ans.append('正常')
-                elif np.argmax(x) == 1:
-                    ans.append('贷款')
-                elif np.argmax(x) == 2:
-                    ans.append('信用卡')
-                elif np.argmax(x) == 3:
-                    ans.append('营销广告')
-                else:
-                    ans.append('其他')
+    
+    col = ['正常','贷款','信用卡','营销广告','其他']
 
 
 
-            ans = pd.DataFrame(ans)
-            ans.to_csv('Pred_out.csv')
-            
+    # result = []
+    # for i in range(cores):
+    #     result.append(pool.apply_async(predict, 
+    #     args=(features_test_array[0 + i*each_data_len : each_data_len + i*each_data_len],bst,)))
+    # for index, value in enumerate(result):
+    #     if index == 0:
+    #         preds = value.get()
+    #     else:
+    #         preds = np.vstack([preds, value.get()])
 
-            
-            print('*********ALL COMPELETE*********')
-            break
+
+
+    preds = np.zeros((test.shape[0], len(col)))
+    preds = bst.predict(features_test)
+
+
+
+    ans = []
+    for x in preds:
+        if np.argmax(x) == 0:
+            ans.append('正常')
+        elif np.argmax(x) == 1:
+            ans.append('贷款')
+        elif np.argmax(x) == 2:
+            ans.append('信用卡')
+        elif np.argmax(x) == 3:
+            ans.append('营销广告')
+        else:
+            ans.append('其他')
+
+
+
+    ans = pd.DataFrame(ans)
+    ans.to_csv('Pred_out.csv')
+
+
+
+    print('*********ALL COMPELETE*********')
+  
