@@ -15,6 +15,9 @@ from process import preProcess
 
 
 def Score(csv, name):
+    '''
+    the second parameter is the filename of the test with its correct label.
+    '''
     score = 0
     pred_df = pd.read_csv(csv)   
     workbook = xlrd.open_workbook(name + '.xlsx')
@@ -193,7 +196,7 @@ if __name__ == "__main__":
     ans.to_csv('lgbm_out.csv')
 
 
-    Score('lgbm_out.csv', '1w')
+    Score('lgbm_out.csv', 'train')   #input your filename of test with label.
 
 
 
