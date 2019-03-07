@@ -8,13 +8,13 @@ Short message Multi-classification with LGBM
 
 ## File
 * pred.py  
-multiprocessing预测文件
+multiprocessing预测文件，其中的测试集需要你从原本含有标签的训练集中自己划分，然后将文件名传入`excel_to_list`中。输出csv文件名可以自己定义。
 
 * lgbm_train.py  
-训练文件
+训练文件，为了提升预测速度，我们会把`model`和`countVec`加载到本地以便`pred.py`随时读取。`Score`函数是用于简单计算预测正确标签的个数，第二个参数需要传入测试集的正确名称。
 
 * process.py  
 预处理
 
-* train/test  
-训练集和测试集
+* train  
+训练集
